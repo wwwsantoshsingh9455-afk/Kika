@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TERMINAL BREAKER: V10 CLEAN_UI</title>
+    <title>TERMINAL BREAKER: V12 STEALTH</title>
     <style>
         :root { --neon: #00ff41; --fail: #ff3131; --warn: #ffae00; --bg: #000; }
         body { 
@@ -11,77 +11,97 @@
             margin: 0; padding: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
         }
 
-        /* CRT Effect (Subtle) */
-        body::after {
-            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
-            z-index: 100; pointer-events: none; background-size: 100% 4px;
+        /* Header Fix */
+        .header-bar { 
+            font-size: 0.75em; padding: 10px 15px; display: flex; justify-content: space-between; 
+            border-bottom: 1px solid #1a1a1a; background: #050505; align-items: center;
         }
-
-        .header-bar { font-size: 0.75em; padding: 8px 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #1a1a1a; background: #050505; }
         
-        .terminal-container {
-            flex-grow: 1; margin: 5px; border: 1px solid #222; background: rgba(0, 8, 0, 0.98);
-            position: relative; overflow: hidden; display: flex; flex-direction: column;
+        .settings-icon { 
+            background: #222; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #fff;
+            border: 1px solid #444; font-weight: bold;
         }
 
+        .terminal-container { flex-grow: 1; margin: 5px; border: 1px solid #222; background: rgba(0, 8, 0, 0.98); position: relative; overflow: hidden; display: flex; flex-direction: column; }
         #term-scroll { flex-grow: 1; padding: 12px; overflow-y: auto; font-size: 0.85em; line-height: 1.4; scroll-behavior: smooth; }
-
-        /* Clean Level Selection (Inside Terminal) */
-        .menu-opt { color: #fff; text-decoration: underline; cursor: pointer; margin: 8px 0; display: block; }
-        .menu-opt:active { color: var(--neon); }
+        
+        /* Settings Overlay */
+        #settings-modal {
+            display: none; position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .modal-content { border: 1px solid var(--neon); padding: 25px; width: 80%; background: #050505; box-shadow: 0 0 15px var(--neon); }
+        .setting-row { margin: 15px 0; border-bottom: 1px solid #222; padding-bottom: 10px; }
+        .setting-btn { 
+            display: block; width: 100%; padding: 10px; margin: 5px 0; 
+            background: #111; color: var(--neon); border: 1px solid var(--neon); cursor: pointer;
+        }
+        .setting-btn:active { background: var(--neon); color: #000; }
 
         .input-line { padding: 10px; border-top: 1px solid #1a1a1a; display: flex; align-items: center; min-height: 20px; }
         .prompt { font-weight: bold; margin-right: 6px; }
         .cursor { display: inline-block; width: 8px; height: 14px; background: var(--neon); animation: blink 0.8s infinite; }
-
-        /* Compact Keypad */
+        
+        /* Keypad */
         .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 5px; background: #050505; height: 240px; }
-        .key { 
-            background: rgba(0, 255, 65, 0.05); border: 1px solid #222; color: var(--neon); 
-            display: flex; align-items: center; justify-content: center; font-size: 1.3em; 
-            border-radius: 4px; -webkit-tap-highlight-color: transparent;
-        }
-        .key:active { background: var(--neon); color: #000; border-color: var(--neon); }
+        .key { background: rgba(0, 255, 65, 0.05); border: 1px solid #222; color: var(--neon); display: flex; align-items: center; justify-content: center; font-size: 1.3em; border-radius: 4px; }
+        .key:active { background: var(--neon); color: #000; }
 
+        /* Overlays */
+        #loading-screen, #dummy-id { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background: #000; z-index: 200; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .progress-bar { width: 80%; height: 10px; border: 1px solid var(--neon); margin-top: 15px; position: relative; }
+        .progress-fill { width: 0%; height: 100%; background: var(--neon); transition: width 0.1s; }
+        .loot-btn { margin-top: 20px; background: var(--warn); color: #000; border: none; padding: 15px 30px; font-weight: bold; animation: pulse 1s infinite; }
+        
         @keyframes blink { 50% { opacity: 0; } }
-        @keyframes shake { 0% {left:3px} 50% {left:-3px} 100% {left:0} }
-        .shake-ui { animation: shake 0.1s 4; position: relative; }
-
-        /* End Screen Overlay */
-        #status-overlay {
-            position: absolute; top:0; left:0; width:100%; height:100%;
-            display:none; flex-direction:column; align-items:center; justify-content:center;
-            z-index:150; text-align:center; font-weight: bold;
-        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
 <div class="header-bar">
-    <span>SYSTEM: <span id="timer-display">READY</span></span>
-    <span>LOOT: <span id="cash-display" style="color:var(--warn)">$0</span></span>
+    <div>TIME: <span id="timer-display">OFFLINE</span></div>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <span id="cash-display" style="color:var(--warn)">$0</span>
+        <div class="settings-icon" onclick="toggleSettings()">⚙️ SETTINGS</div>
+    </div>
 </div>
 
 <div class="terminal-container" id="ui-main">
     <div id="term-scroll">
-        <div style="color: #666;">[v10.45] SECURE_CONNECTION_STABLE</div>
-        <div id="menu-area">
-            <br>> SELECT INJECTION LEVEL:
-            <span class="menu-opt" onclick="initGame(300, 'BEGINNER')">1. BEGINNER (5:00)</span>
-            <span class="menu-opt" onclick="initGame(60, 'PROFESSIONAL')">2. PROFESSIONAL (1:00)</span>
-            <span class="menu-opt" onclick="initGame(30, 'ELITE')">3. ELITE (0:30)</span>
-        </div>
+        <div style="color: #444;">[SYSTEM_LINK_ACTIVE] WAITING FOR TARGET...</div>
         <div id="game-logs"></div>
-        <!-- This is where inputs go -->
         <div id="active-input" style="display:none;" class="input-line">
             <span class="prompt">root@hack:~#</span><span id="current-typing"></span><span class="cursor"></span>
         </div>
     </div>
 
-    <div id="status-overlay">
-        <h2 id="overlay-msg"></h2>
-        <p id="overlay-sub" style="font-size: 0.8em;"></p>
+    <!-- Settings Menu -->
+    <div id="settings-modal">
+        <div class="modal-content">
+            <h3 style="color:var(--warn); margin-top:0;">SYSTEM CONFIG</h3>
+            <div class="setting-row">
+                <label>INJECTION LEVEL:</label>
+                <button class="setting-btn" onclick="setDifficulty(300, 'BEGINNER')">BEGINNER (5:00)</button>
+                <button class="setting-btn" onclick="setDifficulty(60, 'PROFESSIONAL')">PROFESSIONAL (1:00)</button>
+                <button class="setting-btn" onclick="setDifficulty(30, 'ELITE')">ELITE (0:30)</button>
+            </div>
+            <button class="setting-btn" style="border-color:#fff; color:#fff;" onclick="toggleSettings()">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="loading-screen">
+        <div id="loading-text">BYPASSING FIREWALL...</div>
+        <div class="progress-bar"><div id="p-fill" class="progress-fill"></div></div>
+    </div>
+
+    <div id="dummy-id">
+        <div style="border:1px solid var(--warn); padding:20px; background:#050505; color:#fff; width:80%;">
+            <h3 style="color:var(--neon)">ACCESS GRANTED</h3>
+            <p>USER: admin_global_04</p>
+            <p>ASSETS: $450,000.00</p>
+            <button class="loot-btn" onclick="collectLoot()">[ STEAL ASSETS ]</button>
+        </div>
     </div>
 </div>
 
@@ -97,21 +117,27 @@
     const termScroll = document.getElementById('term-scroll');
     const currentTyping = document.getElementById('current-typing');
     const inputLine = document.getElementById('active-input');
-    const menu = document.getElementById('menu-area');
     
-    let secret = "", totalTime = 0, timeLeft = 0, cash = parseInt(localStorage.getItem('h_cash')) || 0;
+    let secret = "", timeLeft = 0, cash = parseInt(localStorage.getItem('h_cash')) || 0;
     let gameActive = false, timerStarted = false, inputBuffer = "";
 
     document.getElementById('cash-display').innerText = "$" + cash.toLocaleString();
 
-    function initGame(sec, lvl) {
+    function toggleSettings() {
+        const modal = document.getElementById('settings-modal');
+        modal.style.display = (modal.style.display === "flex") ? "none" : "flex";
+    }
+
+    function setDifficulty(sec, lvl) {
         secret = Math.floor(1000 + Math.random() * 9000).toString();
-        totalTime = timeLeft = sec;
-        menu.style.display = 'none';
-        inputLine.style.display = 'flex';
+        timeLeft = sec;
         gameActive = true;
+        timerStarted = false; // Reset timer for new game
+        toggleSettings();
+        logs.innerHTML = ""; // Clear old logs
+        inputLine.style.display = 'flex';
         updateTime();
-        print(`[!] SECURITY LEVEL: ${lvl} BYPASSED. STARTING BRUTE-FORCE...`, "var(--warn)");
+        print(`[!] TARGET SYSTEM: ${lvl} LOCKED.`, "var(--warn)");
     }
 
     function updateTime() {
@@ -127,10 +153,10 @@
                 if (!timerStarted) startTimer();
                 submitGuess(inputBuffer);
                 inputBuffer = "";
+                currentTyping.innerText = "";
             }
         } else if (inputBuffer.length < 4) inputBuffer += key;
         currentTyping.innerText = inputBuffer;
-        if (window.navigator.vibrate) window.navigator.vibrate(20);
     }
 
     function startTimer() {
@@ -138,52 +164,60 @@
         const itv = setInterval(() => {
             if (!gameActive) { clearInterval(itv); return; }
             timeLeft--; updateTime();
-            if (timeLeft <= 0) showEnd("TRACE_COMPLETE: ACCESS_LOCKED", "fail");
+            if (timeLeft <= 0) { 
+                alert("TRACE DETECTED! CONNECTION LOST.");
+                location.reload(); 
+            }
         }, 1000);
     }
 
     async function print(text, color = "var(--neon)") {
         const d = document.createElement('div');
         d.style.color = color; d.style.marginBottom = "5px";
+        d.innerHTML = text;
         logs.appendChild(d);
-        for (let i = 0; i < text.length; i++) {
-            d.innerHTML += text.charAt(i);
-            termScroll.scrollTop = termScroll.scrollHeight;
-            await new Promise(r => setTimeout(r, 15));
-        }
+        termScroll.scrollTop = termScroll.scrollHeight;
     }
 
     async function submitGuess(guess) {
-        const h = document.createElement('div');
-        h.innerHTML = `<span class="prompt">root@hack:~#</span>${guess}`;
-        logs.appendChild(h);
-
-        let exact = 0, partial = 0, sArr = secret.split(''), gArr = guess.split('');
+        let exact = 0, partial = 0;
+        let sArr = secret.split(''), gArr = guess.split('');
         for(let i=0; i<4; i++) if(gArr[i]===sArr[i]) { exact++; sArr[i]=gArr[i]=null; }
         for(let i=0; i<4; i++) if(gArr[i]!==null && sArr.includes(gArr[i])) { partial++; sArr[sArr.indexOf(gArr[i])]=null; }
 
+        await print(`root@hack:~# ${guess} -> <span style="color:var(--warn)">[MATCH:${exact} | DATA:${partial}]</span>`);
+
         if (exact === 4) {
             gameActive = false;
-            await print("DECRYPTING...", "#fff");
-            let reward = Math.floor(Math.random() * 800000) + 50000;
-            cash += reward; localStorage.setItem('h_cash', cash);
-            showEnd("BREACH SUCCESSFUL", "win", reward);
-        } else {
-            document.getElementById('ui-main').classList.add('shake-ui');
-            setTimeout(() => document.getElementById('ui-main').classList.remove('shake-ui'), 200);
-            await print(`[X] MATCH:${exact} | DATA:${partial}`, "var(--warn)");
+            await print("------------------------------------", "#fff");
+            await print("SUCCESS: PIN MATCHED.", "var(--neon)");
+            setTimeout(showLoading, 3000);
         }
     }
 
-    function showEnd(msg, type, reward = 0) {
-        gameActive = false;
-        const overlay = document.getElementById('status-overlay');
-        overlay.style.display = "flex";
-        overlay.style.background = type === 'win' ? "rgba(0,100,50,0.95)" : "rgba(120,0,0,0.95)";
-        document.getElementById('overlay-msg').innerText = msg;
-        document.getElementById('overlay-sub').innerText = reward > 0 ? `LOOT: $${reward.toLocaleString()}` : "CONNECTION_TERMINATED";
-        setTimeout(() => location.reload(), 4000);
+    function showLoading() {
+        document.getElementById('loading-screen').style.display = "flex";
+        let width = 0;
+        let fill = document.getElementById('p-fill');
+        let interval = setInterval(() => {
+            width += 4;
+            fill.style.width = width + "%";
+            if (width >= 100) { clearInterval(interval); showDummyID(); }
+        }, 120);
+    }
+
+    function showDummyID() {
+        document.getElementById('loading-screen').style.display = "none";
+        document.getElementById('dummy-id').style.display = "flex";
+    }
+
+    function collectLoot() {
+        let reward = Math.floor(Math.random() * 500000) + 100000;
+        cash += reward;
+        localStorage.setItem('h_cash', cash);
+        location.reload();
     }
 </script>
 </body>
 </html>
+
