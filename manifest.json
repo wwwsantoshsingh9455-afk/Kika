@@ -1,0 +1,15 @@
+{
+  "name": "Terminal Breaker V8",
+  "short_name": "HackerGame",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00ff41",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

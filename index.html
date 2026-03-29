@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TERMINAL BREAKER: V10 CLEAN_UI</title>
+    <style>
+        :root { --neon: #00ff41; --fail: #ff3131; --warn: #ffae00; --bg: #000; }
+        body { 
+            background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; 
+            margin: 0; padding: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* CRT Effect (Subtle) */
+        body::after {
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
+            z-index: 100; pointer-events: none; background-size: 100% 4px;
+        }
+
+        .header-bar { font-size: 0.75em; padding: 8px 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #1a1a1a; background: #050505; }
+        
+        .terminal-container {
+            flex-grow: 1; margin: 5px; border: 1px solid #222; background: rgba(0, 8, 0, 0.98);
+            position: relative; overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        #term-scroll { flex-grow: 1; padding: 12px; overflow-y: auto; font-size: 0.85em; line-height: 1.4; scroll-behavior: smooth; }
+
+        /* Clean Level Selection (Inside Terminal) */
+        .menu-opt { color: #fff; text-decoration: underline; cursor: pointer; margin: 8px 0; display: block; }
+        .menu-opt:active { color: var(--neon); }
+
+        .input-line { padding: 10px; border-top: 1px solid #1a1a1a; display: flex; align-items: center; min-height: 20px; }
+        .prompt { font-weight: bold; margin-right: 6px; }
+        .cursor { display: inline-block; width: 8px; height: 14px; background: var(--neon); animation: blink 0.8s infinite; }
+
+        /* Compact Keypad */
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 5px; background: #050505; height: 240px; }
+        .key { 
+            background: rgba(0, 255, 65, 0.05); border: 1px solid #222; color: var(--neon); 
+            display: flex; align-items: center; justify-content: center; font-size: 1.3em; 
+            border-radius: 4px; -webkit-tap-highlight-color: transparent;
+        }
+        .key:active { background: var(--neon); color: #000; border-color: var(--neon); }
+
+        @keyframes blink { 50% { opacity: 0; } }
+        @keyframes shake { 0% {left:3px} 50% {left:-3px} 100% {left:0} }
+        .shake-ui { animation: shake 0.1s 4; position: relative; }
+
+        /* End Screen Overlay */
+        #status-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            display:none; flex-direction:column; align-items:center; justify-content:center;
+            z-index:150; text-align:center; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-bar">
+    <span>SYSTEM: <span id="timer-display">READY</span></span>
+    <span>LOOT: <span id="cash-display" style="color:var(--warn)">$0</span></span>
+</div>
+
+<div class="terminal-container" id="ui-main">
+    <div id="term-scroll">
+        <div style="color: #666;">[v10.45] SECURE_CONNECTION_STABLE</div>
+        <div id="menu-area">
+            <br>> SELECT INJECTION LEVEL:
+            <span class="menu-opt" onclick="initGame(300, 'BEGINNER')">1. BEGINNER (5:00)</span>
+            <span class="menu-opt" onclick="initGame(60, 'PROFESSIONAL')">2. PROFESSIONAL (1:00)</span>
+            <span class="menu-opt" onclick="initGame(30, 'ELITE')">3. ELITE (0:30)</span>
+        </div>
+        <div id="game-logs"></div>
+        <!-- This is where inputs go -->
+        <div id="active-input" style="display:none;" class="input-line">
+            <span class="prompt">root@hack:~#</span><span id="current-typing"></span><span class="cursor"></span>
+        </div>
+    </div>
+
+    <div id="status-overlay">
+        <h2 id="overlay-msg"></h2>
+        <p id="overlay-sub" style="font-size: 0.8em;"></p>
+    </div>
+</div>
+
+<div class="keypad">
+    <div class="key" onclick="press('1')">1</div><div class="key" onclick="press('2')">2</div><div class="key" onclick="press('3')">3</div>
+    <div class="key" onclick="press('4')">4</div><div class="key" onclick="press('5')">5</div><div class="key" onclick="press('6')">6</div>
+    <div class="key" onclick="press('7')">7</div><div class="key" onclick="press('8')">8</div><div class="key" onclick="press('9')">9</div>
+    <div class="key" style="color:var(--fail)" onclick="press('DEL')">⌫</div><div class="key" onclick="press('0')">0</div><div class="key" style="color:var(--neon)" onclick="press('ENT')">EXE</div>
+</div>
+
+<script>
+    const logs = document.getElementById('game-logs');
+    const termScroll = document.getElementById('term-scroll');
+    const currentTyping = document.getElementById('current-typing');
+    const inputLine = document.getElementById('active-input');
+    const menu = document.getElementById('menu-area');
+    
+    let secret = "", totalTime = 0, timeLeft = 0, cash = parseInt(localStorage.getItem('h_cash')) || 0;
+    let gameActive = false, timerStarted = false, inputBuffer = "";
+
+    document.getElementById('cash-display').innerText = "$" + cash.toLocaleString();
+
+    function initGame(sec, lvl) {
+        secret = Math.floor(1000 + Math.random() * 9000).toString();
+        totalTime = timeLeft = sec;
+        menu.style.display = 'none';
+        inputLine.style.display = 'flex';
+        gameActive = true;
+        updateTime();
+        print(`[!] SECURITY LEVEL: ${lvl} BYPASSED. STARTING BRUTE-FORCE...`, "var(--warn)");
+    }
+
+    function updateTime() {
+        let m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+        document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function press(key) {
+        if (!gameActive) return;
+        if (key === 'DEL') inputBuffer = inputBuffer.slice(0, -1);
+        else if (key === 'ENT') {
+            if (inputBuffer.length === 4) {
+                if (!timerStarted) startTimer();
+                submitGuess(inputBuffer);
+                inputBuffer = "";
+            }
+        } else if (inputBuffer.length < 4) inputBuffer += key;
+        currentTyping.innerText = inputBuffer;
+        if (window.navigator.vibrate) window.navigator.vibrate(20);
+    }
+
+    function startTimer() {
+        timerStarted = true;
+        const itv = setInterval(() => {
+            if (!gameActive) { clearInterval(itv); return; }
+            timeLeft--; updateTime();
+            if (timeLeft <= 0) showEnd("TRACE_COMPLETE: ACCESS_LOCKED", "fail");
+        }, 1000);
+    }
+
+    async function print(text, color = "var(--neon)") {
+        const d = document.createElement('div');
+        d.style.color = color; d.style.marginBottom = "5px";
+        logs.appendChild(d);
+        for (let i = 0; i < text.length; i++) {
+            d.innerHTML += text.charAt(i);
+            termScroll.scrollTop = termScroll.scrollHeight;
+            await new Promise(r => setTimeout(r, 15));
+        }
+    }
+
+    async function submitGuess(guess) {
+        const h = document.createElement('div');
+        h.innerHTML = `<span class="prompt">root@hack:~#</span>${guess}`;
+        logs.appendChild(h);
+
+        let exact = 0, partial = 0, sArr = secret.split(''), gArr = guess.split('');
+        for(let i=0; i<4; i++) if(gArr[i]===sArr[i]) { exact++; sArr[i]=gArr[i]=null; }
+        for(let i=0; i<4; i++) if(gArr[i]!==null && sArr.includes(gArr[i])) { partial++; sArr[sArr.indexOf(gArr[i])]=null; }
+
+        if (exact === 4) {
+            gameActive = false;
+            await print("DECRYPTING...", "#fff");
+            let reward = Math.floor(Math.random() * 800000) + 50000;
+            cash += reward; localStorage.setItem('h_cash', cash);
+            showEnd("BREACH SUCCESSFUL", "win", reward);
+        } else {
+            document.getElementById('ui-main').classList.add('shake-ui');
+            setTimeout(() => document.getElementById('ui-main').classList.remove('shake-ui'), 200);
+            await print(`[X] MATCH:${exact} | DATA:${partial}`, "var(--warn)");
+        }
+    }
+
+    function showEnd(msg, type, reward = 0) {
+        gameActive = false;
+        const overlay = document.getElementById('status-overlay');
+        overlay.style.display = "flex";
+        overlay.style.background = type === 'win' ? "rgba(0,100,50,0.95)" : "rgba(120,0,0,0.95)";
+        document.getElementById('overlay-msg').innerText = msg;
+        document.getElementById('overlay-sub').innerText = reward > 0 ? `LOOT: $${reward.toLocaleString()}` : "CONNECTION_TERMINATED";
+        setTimeout(() => location.reload(), 4000);
+    }
+</script>
+</body>
+</html>
